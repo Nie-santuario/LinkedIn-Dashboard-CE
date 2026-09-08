@@ -1,0 +1,8 @@
+{
+  "organico": {
+    "erro": "LINKEDIN_ORGANIC_ACCESS_TOKEN ou LINKEDIN_ORGANIZATION_URN não configurados."
+  },
+  "pago": {
+    "erro": "LINKEDIN_PAID_ACCESS_TOKEN ou LINKEDIN_AD_ACCOUNT_URN não configurados."
+  }
+}
