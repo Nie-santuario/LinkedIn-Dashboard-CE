@@ -145,14 +145,13 @@ st.session_state.consultar_api = False
 
 
 # --------------------------------------------------------------------------
-# 3. Transformação
+# 3. Transformação e Preparação dos Objetos Visuais
 # --------------------------------------------------------------------------
 df_periodo = transform.filtrar_periodo(df_posts_bruto, data_inicio, data_fim)
 df_periodo = transform.calcular_metricas_por_post(df_periodo)
 kpis = transform.kpis_periodo(df_periodo, impressoes_unicas, pagos)
 df_mix = transform.mix_de_interacoes(df_periodo)
 
-# Carrega os top posts diretamente da Aba 1 do Excel com mapeamento dinâmico
 df_top = linkedin_export.carregar_top_publicacoes_excel(data_inicio, data_fim)
 if df_top.empty:
     df_top = transform.top_publicacoes(df_periodo)
@@ -163,6 +162,35 @@ except Exception as e:
     st.error(f"Erro ao carregar comparativo mensal da planilha: {e}")
     raise e
 
+# Instanciação prévia das figuras Plotly para a tela e para o PDF
+fig_imp = render_grafico_impressoes(df_periodo)
+fig_combo = render_grafico_combo(df_periodo)
+fig_donut = render_donut_mix(df_mix)
+
+# Texto de Insights gerado previamente para abastecer o PDF e a tela
+if not df_top.empty:
+    df_ordenado_eng = df_top.sort_values(by="engajamento_pct", ascending=False)
+    df_ordenado_imp = df_top.sort_values(by="impressoes", ascending=False)
+    
+    post_eng = df_ordenado_eng.iloc[0]["resumo"] if not df_ordenado_eng.empty else "N/A"
+    taxa_eng = df_ordenado_eng.iloc[0]["engajamento_pct"] if not df_ordenado_eng.empty else 0.0
+    post_imp = df_ordenado_imp.iloc[0]["resumo"] if not df_ordenado_imp.empty else "N/A"
+    total_imp = df_ordenado_imp.iloc[0]["impressoes"] if not df_ordenado_imp.empty else 0
+    
+    texto_insights = (
+        f"👥 1. Conteúdos de impacto geram maior interação\n"
+        f"A publicação '{post_eng}' liderou o engajamento do período alcançando {taxa_eng:.2f}%.\n\n"
+        f"🏟️ 2. Conteúdos de estrutura geram visibilidade\n"
+        f"A publicação com maior alcance obteve {int(total_imp)} impressões totais ('{post_imp}').\n\n"
+        f"🏆 3. Reconhecimento fortalece a autoridade\n"
+        f"Conteúdos relacionados a premiações e reconhecimentos institucionais continuam apresentando boa resposta em reações.\n\n"
+        f"🎯 4. Oportunidade para o próximo mês\n"
+        f"Combinar estrutura + eventos realizados + resultados + impacto em histórias concretas de sucesso."
+    )
+else:
+    texto_insights = "Sem dados suficientes para gerar insights automáticos no período selecionado."
+
+# Geração segura do PDF utilizando o seu reportlab customizado original
 pdf_bytes = gerar_pdf_dashboard(
     data_inicio=data_inicio,
     data_fim=data_fim,
@@ -171,7 +199,6 @@ pdf_bytes = gerar_pdf_dashboard(
     df_mix=df_mix,
     comparativo=comparativo,
 )
-
 
 # --------------------------------------------------------------------------
 # 4. Layout
@@ -186,9 +213,9 @@ with dashboard_panel:
         type="primary",
         icon=":material/download:",
     )
+    
     render_kpis(kpis)
 
-    # BARRA DINÂMICA DE CTR CALCULADA DIRETAMENTE DOS KPIS TRATADOS
     tot_imp = int(kpis.get("impressoes", 0))
     tot_cli = int(kpis.get("cliques", 0))
     ctr_geral = (tot_cli / tot_imp * 100) if tot_imp > 0 else 0.0
@@ -205,21 +232,18 @@ with dashboard_panel:
 
     with g1:
         st.markdown("<div class='section-title'>📊 IMPRESSÕES POR PUBLICAÇÃO</div>", unsafe_allow_html=True)
-        fig_imp = render_grafico_impressoes(df_periodo)
         fig_imp.update_layout(height=350)
         st.plotly_chart(fig_imp, width="stretch", config={"displayModeBar": False})
         st.markdown('<div class="chart-caption">A publicação com maior número de impressões se destacou no período.</div>', unsafe_allow_html=True)
 
     with g2:
         st.markdown("<div class='section-title'>📈 IMPRESSÕES × ENGAJAMENTO POR PUBLICAÇÃO</div>", unsafe_allow_html=True)
-        fig_combo = render_grafico_combo(df_periodo)
         fig_combo.update_layout(height=350)
         st.plotly_chart(fig_combo, width="stretch", config={"displayModeBar": False})
         st.markdown('<div class="chart-caption">Compare alcance (impressões) com a taxa de engajamento de cada publicação.</div>', unsafe_allow_html=True)
 
     with g3:
         st.markdown("<div class='section-title'>🍩 MIX DE INTERAÇÕES</div>", unsafe_allow_html=True)
-        fig_donut = render_donut_mix(df_mix)
         fig_donut.update_layout(height=350)
         st.plotly_chart(fig_donut, width="stretch", config={"displayModeBar": False})
 
@@ -228,37 +252,11 @@ with dashboard_panel:
     c1, c2, c3 = st.columns([2, 1.6, 1.4]) 
 
     with c1:
-        st.markdown("<div class='section-title'>🏆 TOP 5 PUBLICAÇÕES DO MÊS</div>", unsafe_allow_html=True)
+        st.markdown("<div class='section-title'>🏆 TOP 10 PUBLICAÇÕES DO MÊS</div>", unsafe_allow_html=True)
         render_top_publicacoes(df_top)
 
     with c2:
         st.markdown("<div class='section-title'>💡 INSIGHTS DO MÊS</div>", unsafe_allow_html=True)
-        
-        # ANÁLISE DINÂMICA OBRIGATÓRIA BASEADA NOS DADOS REAIS DO PERÍODO
-        if not df_top.empty:
-            df_ordenado_eng = df_top.sort_values(by="engajamento_pct", ascending=False)
-            df_ordenado_imp = df_top.sort_values(by="impressoes", ascending=False)
-            
-            post_eng = df_ordenado_eng.iloc[0]["resumo"] if not df_ordenado_eng.empty else "N/A"
-            taxa_eng = df_ordenado_eng.iloc[0]["engajamento_pct"] if not df_ordenado_eng.empty else 0.0
-            
-            post_imp = df_ordenado_imp.iloc[0]["resumo"] if not df_ordenado_imp.empty else "N/A"
-            total_imp = df_ordenado_imp.iloc[0]["impressoes"] if not df_ordenado_imp.empty else 0
-            
-            texto_insights = (
-                f"👥 1. Conteúdos de impacto geram maior interação\n"
-                f"A publicação '{post_eng}' liderou o engajamento do período alcançando {taxa_eng:.2f}%.\n\n"
-                f"🏟️ 2. Conteúdos de estrutura geram visibilidade\n"
-                f"A publicação com maior alcance obteve {int(total_imp)} impressões totais ('{post_imp}').\n\n"
-                f"🏆 3. Reconhecimento fortalece a autoridade\n"
-                f"Conteúdos relacionados a premiações e reconhecimentos institucionais continuam apresentando boa resposta em reações.\n\n"
-                f"🎯 4. Oportunidade para o próximo mês\n"
-                f"Combinar estrutura + eventos realizados + resultados + impacto em histórias concretas de sucesso."
-            )
-        else:
-            texto_insights = "Sem dados suficientes para gerar insights automáticos no período selecionado."
-
-        # Exibição analítica direta (sem gravar estado fixo em arquivo)
         st.text_area(
             "Insights automáticos do período:",
             value=texto_insights,

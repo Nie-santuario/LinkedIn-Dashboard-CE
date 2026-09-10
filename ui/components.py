@@ -50,10 +50,14 @@ def render_kpis(kpis: dict):
 
 
 def render_grafico_impressoes(df):
-    fig = go.Figure(go.Bar(
+    # Transformado em gráfico de linha com área preenchida para suportar grandes períodos sem poluição visual
+    fig = go.Figure(go.Scatter(
         x=df["data"].dt.strftime("%d/%m"),
         y=df["impressoes"],
-        marker_color=COR_AZUL,
+        mode="lines",
+        fill="tozeroy",
+        line=dict(color=COR_AZUL, width=2),
+        fillcolor="rgba(10, 102, 194, 0.15)",
     ))
 
     fig.update_layout(
@@ -62,17 +66,29 @@ def render_grafico_impressoes(df):
         margin=dict(t=20, b=20, l=20, r=20),
         xaxis=dict(showgrid=False),
         yaxis=dict(showgrid=True, gridcolor="rgba(200,200,200,0.2)"),
+        height=280,
     )
 
     return fig
 
 
 def render_grafico_combo(df):
+    # Transformado em linhas limpas para impressões e taxa de engajamento
     fig = make_subplots(specs=[[{"secondary_y": True}]])
+    
     fig.add_trace(
-        go.Bar(x=df["data"].dt.strftime("%d/%m"), y=df["impressoes"], name="Impressões", marker_color=COR_AZUL),
+        go.Scatter(
+            x=df["data"].dt.strftime("%d/%m"), 
+            y=df["impressoes"], 
+            name="Impressões", 
+            mode="lines",
+            fill="tozeroy",
+            line=dict(color=COR_AZUL, width=2),
+            fillcolor="rgba(10, 102, 194, 0.1)",
+        ),
         secondary_y=False,
     )
+    
     fig.add_trace(
         go.Scatter(
             x=df["data"].dt.strftime("%d/%m"),
@@ -80,17 +96,21 @@ def render_grafico_combo(df):
             name="Taxa de Engajamento (%)",
             mode="lines+markers",
             line=dict(color=COR_VERDE, width=2),
+            marker=dict(size=3),
         ),
         secondary_y=True,
     )
+    
     fig.update_layout(
         template="plotly_white",
-        xaxis=dict(showgrid=False, title="Data da publicação", nticks=12, tickangle=0),
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+        xaxis=dict(showgrid=False, title="", nticks=12, tickangle=0),
         legend=dict(orientation="h", yanchor="bottom", y=1.02),
         margin=dict(t=30, b=10, l=10, r=10),
         height=280,
     )
-    fig.update_yaxes(title_text="Impressões", showgrid=True, secondary_y=False)
+    fig.update_yaxes(title_text="Impressões", showgrid=True, gridcolor="rgba(200,200,200,0.2)", secondary_y=False)
     fig.update_yaxes(title_text="Engajamento (%)", showgrid=False, secondary_y=True)
     return fig
 
