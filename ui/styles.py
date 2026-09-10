@@ -38,41 +38,48 @@ def load_css():
             margin: 4px 0 0 0;
         }}
 
-        .header-row {{
+        .st-key-topbar {{
             background: {COR_HEADER};
-            border-radius: 10px;
-            padding: 0;
-            margin-bottom: 10px;
-        }}
-
-        .header-row > div {{
-            background: {COR_HEADER};
-        }}
-
-        .header-row .stForm {{
+            border-radius: 12px;
+            padding: 18px 22px;
+            margin: 0 0 14px 0;
             min-height: 138px;
-            padding: 20px 20px 12px 8px;
             box-sizing: border-box;
         }}
 
-        .header-row .stForm {{
+        .st-key-topbar .stForm {{
             background: transparent;
             border: 0;
+            padding: 0;
         }}
 
-        .header-row [data-testid="stWidgetLabel"] p {{
+        .topbar-brand h1 {{
+            color: white;
+            font-size: 25px;
+            font-weight: 800;
+            line-height: 1.15;
+            margin: 0;
+        }}
+
+        .topbar-brand p {{
+            color: #cfe0f0;
+            font-size: 13px;
+            margin: 8px 0 0 0;
+        }}
+
+        .st-key-topbar [data-testid="stWidgetLabel"] p {{
             color: #cfe0f0;
             font-size: 12px;
         }}
 
-        .header-row [data-testid="stDateInput"] input {{
+        .st-key-topbar [data-testid="stDateInput"] input {{
             background: #f7f9fc;
             color: #19324d;
         }}
 
-        .header-row button[kind="primaryFormSubmit"] {{
-            margin-top: 24px;
+        .st-key-topbar button[kind="primaryFormSubmit"] {{
             min-height: 40px;
+            margin-top: 24px;
         }}
 
         .section-title {{

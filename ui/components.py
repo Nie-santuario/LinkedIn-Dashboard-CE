@@ -48,34 +48,22 @@ def render_kpis(kpis: dict):
     _kpi_card(cols[6], "CTR médio (publicações)", f"{kpis['ctr_medio']:.2f}%".replace(".", ","), "Média do CTR das publicações")
     _kpi_card(cols[7], "Impressões patrocinadas", kpis["impressoes_patrocinadas"], "Todo o desempenho foi orgânico" if kpis["impressoes_patrocinadas"] == 0 else "Inclui campanhas pagas")
 
-    st.markdown(
-        f"""
-        <div class="info-banner">
-            ℹ️ MÉTRICAS DO PERÍODO (todas as interações das publicações no período analisado)
-            &nbsp;|&nbsp; CTR GERAL DO PERÍODO: <b>{kpis['ctr_geral']:.2f}%</b>
-            &nbsp;({kpis['cliques']} cliques ÷ {kpis['impressoes']} impressões)
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
 
 def render_grafico_impressoes(df):
     fig = go.Figure(go.Bar(
         x=df["data"].dt.strftime("%d/%m"),
         y=df["impressoes"],
         marker_color=COR_AZUL,
-        text=df["impressoes"],
-        textposition="outside",
     ))
+
     fig.update_layout(
-        paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        xaxis=dict(showgrid=False, title="Data da publicação"),
-        yaxis=dict(showgrid=False, title="Impressões"),
-        margin=dict(t=10, b=10, l=10, r=10),
-        height=280,
+        paper_bgcolor="rgba(0,0,0,0)",
+        margin=dict(t=20, b=20, l=20, r=20),
+        xaxis=dict(showgrid=False),
+        yaxis=dict(showgrid=True, gridcolor="rgba(200,200,200,0.2)"),
     )
+
     return fig
 
 
@@ -90,22 +78,19 @@ def render_grafico_combo(df):
             x=df["data"].dt.strftime("%d/%m"),
             y=df["engajamento_pct"],
             name="Taxa de Engajamento (%)",
-            mode="lines+markers+text",
+            mode="lines+markers",
             line=dict(color=COR_VERDE, width=2),
-            text=[f"{v:.2f}%".replace(".", ",") for v in df["engajamento_pct"]],
-            textposition="top center",
         ),
         secondary_y=True,
     )
     fig.update_layout(
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        xaxis=dict(showgrid=False, title="Data da publicação"),
+        template="plotly_white",
+        xaxis=dict(showgrid=False, title="Data da publicação", nticks=12, tickangle=0),
         legend=dict(orientation="h", yanchor="bottom", y=1.02),
         margin=dict(t=30, b=10, l=10, r=10),
         height=280,
     )
-    fig.update_yaxes(title_text="Impressões", showgrid=False, secondary_y=False)
+    fig.update_yaxes(title_text="Impressões", showgrid=True, secondary_y=False)
     fig.update_yaxes(title_text="Engajamento (%)", showgrid=False, secondary_y=True)
     return fig
 
@@ -121,8 +106,9 @@ def render_donut_mix(df_mix):
         textinfo="none",
     ))
     fig.update_layout(
-        paper_bgcolor="rgba(0,0,0,0)",
-        showlegend=False,
+        template="plotly_white",
+        showlegend=True,
+        legend=dict(orientation="v", yanchor="top", y=0.5, xanchor="left", x=1.0),
         margin=dict(t=10, b=10, l=10, r=10),
         height=260,
         annotations=[dict(text=f"<b>{total}</b><br>Interações totais", x=0.5, y=0.5, font_size=14, showarrow=False)],

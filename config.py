@@ -36,14 +36,15 @@ def get_secret(key: str, default=None):
     except (KeyError, FileNotFoundError):
         return default
 
-
 # --- Flags de execução ---
-def modo_mock_ativo() -> bool:
-    """Retorna True se as credenciais reais não estiverem configuradas —
-    nesse caso o app roda 100% com dados fictícios para validar o layout."""
-    tem_organic = get_secret("LINKEDIN_ORGANIC_ACCESS_TOKEN") is not None
-    tem_paid = get_secret("LINKEDIN_PAID_ACCESS_TOKEN") is not None
-    return not (tem_organic and tem_paid)
+# def modo_mock_ativo() -> bool:
+#     """Retorna True se as credenciais reais não estiverem configuradas —
+#     nesse caso o app roda 100% com dados fictícios para validar o layout."""
+#     tem_organic = get_secret("LINKEDIN_ORGANIC_ACCESS_TOKEN") is not None
+#     tem_paid = get_secret("LINKEDIN_PAID_ACCESS_TOKEN") is not None
+#     return not (tem_organic and tem_paid)
 
+def modo_mock_ativo() -> bool:
+    return False
 
 CACHE_TTL_SECONDS = 60 * 60 * 12  # 12 horas, conforme brief

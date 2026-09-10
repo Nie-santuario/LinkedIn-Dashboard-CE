@@ -23,12 +23,11 @@ def _headers(access_token: str) -> dict:
 
 
 @st.cache_data(ttl=CACHE_TTL_SECONDS, show_spinner=False)
-def buscar_posts_organicos(organization_urn: str, data_inicio: str, data_fim: str) -> list[dict]:
+def buscar_posts_organicos(organization_urn: str) -> list[dict]:
     """
-    Busca as publicações orgânicas da página no período.
-    data_inicio/data_fim no formato 'YYYY-MM-DD' (usados apenas para
-    filtrar localmente o resultado, já que o endpoint /rest/posts
-    não filtra por data diretamente).
+    Busca as publicações orgânicas recentes da página.
+    O resultado de 50 posts é cacheado; a filtragem de data 
+    ocorre localmente no dashboard via Pandas.
     """
     access_token = get_valid_token("organic")
     if access_token is None:
@@ -44,7 +43,7 @@ def buscar_posts_organicos(organization_urn: str, data_inicio: str, data_fim: st
 
 
 @st.cache_data(ttl=CACHE_TTL_SECONDS, show_spinner=False)
-def buscar_estatisticas_organicas(organization_urn: str, data_inicio: str, data_fim: str) -> list[dict]:
+def buscar_estatisticas_organicas(organization_urn: str) -> list[dict]:
     """
     Busca impressões, cliques, reações, engajamento por publicação.
     Endpoint: /rest/organizationalEntityShareStatistics
