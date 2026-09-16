@@ -44,8 +44,9 @@ def gerar_pdf_dashboard(
     df_top: pd.DataFrame,
     df_mix: pd.DataFrame,
     comparativo: pd.DataFrame,
+    texto_insights: str = "",
 ) -> bytes:
-    """Gera o relatório PDF corporativo com formatação limpa e alinhada."""
+    """Gera o relatório PDF corporativo enriquecido com insights e CTR geral."""
     output = BytesIO()
     doc = SimpleDocTemplate(
         output,
@@ -60,33 +61,30 @@ def gerar_pdf_dashboard(
 
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle(
-        "PdfTitle", parent=styles["Title"], fontName="Helvetica-Bold", fontSize=16,
-        leading=20, textColor=colors.white, alignment=TA_LEFT, spaceAfter=2,
+        "PdfTitle", parent=styles["Title"], fontName="Helvetica-Bold", fontSize=15,
+        leading=18, textColor=colors.white, alignment=TA_LEFT, spaceAfter=2,
     )
     subtitle_style = ParagraphStyle(
-        "PdfSubtitle", parent=styles["Normal"], fontSize=8.5, textColor=colors.HexColor("#D8E7F5"),
+        "PdfSubtitle", parent=styles["Normal"], fontSize=8, textColor=colors.HexColor("#D8E7F5"),
     )
     section_style = ParagraphStyle(
-        "PdfSection", parent=styles["Heading2"], fontName="Helvetica-Bold", fontSize=10,
-        leading=13, textColor=TEXT, spaceBefore=6, spaceAfter=3,
+        "PdfSection", parent=styles["Heading2"], fontName="Helvetica-Bold", fontSize=9.5,
+        leading=12, textColor=TEXT, spaceBefore=5, spaceAfter=2,
     )
     body_style = ParagraphStyle(
         "PdfBody", parent=styles["Normal"], fontSize=7.5, leading=9.5, textColor=TEXT,
-    )
-    body_center = ParagraphStyle(
-        "PdfBodyCenter", parent=body_style, alignment=TA_CENTER,
     )
     body_right = ParagraphStyle(
         "PdfBodyRight", parent=body_style, alignment=TA_RIGHT,
     )
     small_style = ParagraphStyle(
-        "PdfSmall", parent=body_style, fontSize=7, leading=8.5, textColor=MUTED,
+        "PdfSmall", parent=body_style, fontSize=6.5, leading=8, textColor=MUTED,
     )
     kpi_label_style = ParagraphStyle(
-        "PdfKpiLabel", parent=body_style, fontSize=6.5, alignment=TA_CENTER, textColor=MUTED,
+        "PdfKpiLabel", parent=body_style, fontSize=6, alignment=TA_CENTER, textColor=MUTED,
     )
     kpi_value_style = ParagraphStyle(
-        "PdfKpiValue", parent=body_style, fontName="Helvetica-Bold", fontSize=13,
+        "PdfKpiValue", parent=body_style, fontName="Helvetica-Bold", fontSize=12,
         alignment=TA_CENTER, textColor=BLUE,
     )
 
@@ -109,12 +107,12 @@ def gerar_pdf_dashboard(
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("LEFTPADDING", (0, 0), (-1, -1), 6),
         ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-        ("TOPPADDING", (0, 0), (-1, -1), 6),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
     ]))
-    story.extend([header, Spacer(1, 3 * mm)])
+    story.extend([header, Spacer(1, 2.5 * mm)])
 
-    # 2. KPIs (8 colunas perfeitamente distribuídas nos 277mm úteis da página paisagem)
+    # 2. KPIs (8 colunas)
     kpi_values = [
         ("Impressões", _number(kpis.get("impressoes", 0))),
         ("Impressões únicas", _number(kpis.get("impressoes_unicas", 0))),
@@ -135,32 +133,29 @@ def gerar_pdf_dashboard(
         ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#D9E1EA")),
         ("INNERGRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#E6EAF0")),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-    ]))
-    story.extend([kpi_table, Spacer(1, 3 * mm)])
-
-    # 3. Mix de Interações
-    story.append(_text("Mix de Interações", section_style))
-    mix_rows = [[_text("<b>Tipo</b>", body_style), _text("<b>Quantidade</b>", body_right), _text("<b>Percentual</b>", body_right)]]
-    for _, row in df_mix.iterrows():
-        mix_rows.append([
-            _text(row.get("tipo", ""), body_style),
-            _text(_number(row.get("quantidade", 0)), body_right),
-            _text(f"{row.get('percentual', 0):.1f}%".replace(".", ","), body_right),
-        ])
-    mix_table = Table(mix_rows, colWidths=[97 * mm, 90 * mm, 90 * mm])
-    mix_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), LIGHT_BLUE),
-        ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#D9E1EA")),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("TOPPADDING", (0, 0), (-1, -1), 3),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
     ]))
-    story.extend([mix_table, Spacer(1, 3 * mm)])
+    story.extend([kpi_table, Spacer(1, 2.5 * mm)])
 
-    # 4. Top Publicações
-    story.append(_text("Top Publicações do Período", section_style))
+    # 3. Banner de CTR Geral
+    tot_imp = int(kpis.get("impressoes", 0))
+    tot_cli = int(kpis.get("cliques", 0))
+    ctr_geral = (tot_cli / tot_imp * 100) if tot_imp > 0 else 0.0
+    ctr_txt = f"<b>MÉTRICAS DO PERÍODO</b> &nbsp;|&nbsp; <b>CTR GERAL DO PERÍODO: {ctr_geral:.2f}%</b> ({tot_cli} cliques ÷ {tot_imp} impressões)"
+    
+    banner_table = Table([[_text(ctr_txt, ParagraphStyle("Banner", parent=body_style, alignment=TA_CENTER, fontSize=7))]], colWidths=[277 * mm])
+    banner_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f8f9fa")),
+        ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#ddd")),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+    ]))
+    story.extend([banner_table, Spacer(1, 2.5 * mm)])
+
+    # 4. Tabelas: Mix de Interações e Top Publicações lado a lado ou sequenciais estruturadas
+    story.append(_text("Top Publicações do Período & Mix de Interações", section_style))
+    
     top_rows = [[
         _text("<b>Data</b>", body_style), 
         _text("<b>Resumo da Publicação</b>", body_style), 
@@ -169,7 +164,7 @@ def gerar_pdf_dashboard(
         _text("<b>Reações</b>", body_right), 
         _text("<b>Engajamento</b>", body_right),
     ]]
-    for _, row in df_top.head(10).iterrows():
+    for _, row in df_top.head(5).iterrows():
         data = row.get("data")
         data_label = data.strftime("%d/%m/%Y") if hasattr(data, "strftime") else data
         top_rows.append([
@@ -180,17 +175,37 @@ def gerar_pdf_dashboard(
             _text(_number(row.get("reacoes", 0)), body_right),
             _text(_percent(row.get("engajamento_pct", 0)), body_right),
         ])
-    top_table = Table(top_rows, colWidths=[22 * mm, 145 * mm, 30 * mm, 23 * mm, 23 * mm, 34 * mm], repeatRows=1)
+    top_table = Table(top_rows, colWidths=[20 * mm, 147 * mm, 30 * mm, 23 * mm, 23 * mm, 34 * mm], repeatRows=1)
     top_table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), LIGHT_BLUE),
         ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#D9E1EA")),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("TOPPADDING", (0, 0), (-1, -1), 3),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ("TOPPADDING", (0, 0), (-1, -1), 2.5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
     ]))
-    story.extend([top_table, Spacer(1, 3 * mm)])
+    story.extend([top_table, Spacer(1, 2.5 * mm)])
 
-    # 5. Comparativo Mensal (Corrigido os nomes das colunas e alinhamentos)
+    # 5. Insights Automáticos
+    if texto_insights:
+        story.append(_text("Insights Automáticos do Período", section_style))
+        insights_rows = []
+        for linha in texto_insights.split('\n'):
+            if linha.strip():
+                insights_rows.append([_text(linha, body_style)])
+        
+        if insights_rows:
+            insights_table = Table(insights_rows, colWidths=[277 * mm])
+            insights_table.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#FDFDFD")),
+                ("BOX", (0, 0), (-1, -1), 0.35, colors.HexColor("#D9E1EA")),
+                ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                ("TOPPADDING", (0, 0), (-1, -1), 3),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ]))
+            story.extend([insights_table, Spacer(1, 2.5 * mm)])
+
+    # 6. Comparativo Mensal
     story.append(_text("Comparativo Mensal", section_style))
     comp_rows = [[
         _text("<b>Indicador</b>", body_style), 
@@ -208,8 +223,8 @@ def gerar_pdf_dashboard(
         ("BACKGROUND", (0, 0), (-1, 0), LIGHT_BLUE),
         ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#D9E1EA")),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("TOPPADDING", (0, 0), (-1, -1), 3),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ("TOPPADDING", (0, 0), (-1, -1), 2.5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
     ]))
     story.append(comp_table)
 

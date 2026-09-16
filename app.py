@@ -1,5 +1,4 @@
 import datetime as dt
-
 import streamlit as st
 
 from config import get_secret
@@ -198,6 +197,7 @@ pdf_bytes = gerar_pdf_dashboard(
     df_top=df_top,
     df_mix=df_mix,
     comparativo=comparativo,
+    texto_insights=texto_insights,
 )
 
 # --------------------------------------------------------------------------
@@ -233,19 +233,19 @@ with dashboard_panel:
     with g1:
         st.markdown("<div class='section-title'>📊 IMPRESSÕES POR PUBLICAÇÃO</div>", unsafe_allow_html=True)
         fig_imp.update_layout(height=350)
-        st.plotly_chart(fig_imp, width="stretch", config={"displayModeBar": False})
+        st.plotly_chart(fig_imp, width="stretch", config={"displayModeBar": True})
         st.markdown('<div class="chart-caption">A publicação com maior número de impressões se destacou no período.</div>', unsafe_allow_html=True)
 
     with g2:
         st.markdown("<div class='section-title'>📈 IMPRESSÕES × ENGAJAMENTO POR PUBLICAÇÃO</div>", unsafe_allow_html=True)
         fig_combo.update_layout(height=350)
-        st.plotly_chart(fig_combo, width="stretch", config={"displayModeBar": False})
+        st.plotly_chart(fig_combo, width="stretch", config={"displayModeBar": True})
         st.markdown('<div class="chart-caption">Compare alcance (impressões) com a taxa de engajamento de cada publicação.</div>', unsafe_allow_html=True)
 
     with g3:
         st.markdown("<div class='section-title'>🍩 MIX DE INTERAÇÕES</div>", unsafe_allow_html=True)
         fig_donut.update_layout(height=350)
-        st.plotly_chart(fig_donut, width="stretch", config={"displayModeBar": False})
+        st.plotly_chart(fig_donut, width="stretch", config={"displayModeBar": True})
 
     st.markdown("<br>", unsafe_allow_html=True)
     

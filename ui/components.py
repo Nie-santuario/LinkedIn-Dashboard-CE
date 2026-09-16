@@ -154,4 +154,9 @@ def render_top_publicacoes(df_top):
 
 
 def render_comparativo(df_comp):
-    st.dataframe(df_comp.astype(str), hide_index=True, width="stretch")
+    df_exibicao = df_comp.rename(columns={
+        "indicador": "Indicador", 
+        "mes_anterior": "Mês Anterior", 
+        "mes_atual": "Mês Atual"
+    })
+    st.dataframe(df_exibicao.astype(str), hide_index=True, width="stretch")
