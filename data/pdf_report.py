@@ -1,5 +1,6 @@
 from io import BytesIO
 import pandas as pd
+import html
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.lib.pagesizes import A4, landscape
@@ -169,7 +170,7 @@ def gerar_pdf_dashboard(
         data_label = data.strftime("%d/%m/%Y") if hasattr(data, "strftime") else data
         top_rows.append([
             _text(data_label, small_style),
-            _text(str(row.get("resumo", ""))[:110], small_style),
+            _text(html.escape(str(row.get("resumo", ""))[:110]), small_style),
             _text(_number(row.get("impressoes", 0)), body_right),
             _text(_number(row.get("cliques", 0)), body_right),
             _text(_number(row.get("reacoes", 0)), body_right),
@@ -191,7 +192,7 @@ def gerar_pdf_dashboard(
         insights_rows = []
         for linha in texto_insights.split('\n'):
             if linha.strip():
-                insights_rows.append([_text(linha, body_style)])
+                insights_rows.append([_text(html.escape(linha), body_style)])
         
         if insights_rows:
             insights_table = Table(insights_rows, colWidths=[277 * mm])
