@@ -19,8 +19,12 @@ from api import organic, paid
 st.set_page_config(page_title="Dashboard LinkedIn", layout="wide", initial_sidebar_state="collapsed")
 load_css()
 
-st.session_state.setdefault("periodo_inicio", dt.date(2026, 7, 1))
-st.session_state.setdefault("periodo_fim", dt.date(2026, 7, 31))
+# Restrição de período: máximo 1 ano para trás (igual ao LinkedIn Analytics)
+_HOJE = dt.date.today()
+_DATA_MINIMA = _HOJE - dt.timedelta(days=365)
+
+st.session_state.setdefault("periodo_inicio", _DATA_MINIMA)
+st.session_state.setdefault("periodo_fim", _HOJE)
 st.session_state.setdefault("consultar_api", False)
 st.session_state.setdefault("status_api", [])
 
@@ -42,6 +46,9 @@ with st.container(key="topbar"):
                     "De",
                     value=st.session_state.periodo_inicio,
                     format="DD/MM/YYYY",
+                    min_value=_DATA_MINIMA,
+                    max_value=_HOJE,
+                    help=f"Mínimo: {_DATA_MINIMA.strftime('%d/%m/%Y')} (1 ano atrás)",
                     key="periodo_inicio_input",
                 )
             with col_fim:
@@ -49,6 +56,9 @@ with st.container(key="topbar"):
                     "Até",
                     value=st.session_state.periodo_fim,
                     format="DD/MM/YYYY",
+                    min_value=_DATA_MINIMA,
+                    max_value=_HOJE,
+                    help=f"Máximo: {_HOJE.strftime('%d/%m/%Y')} (hoje)",
                     key="periodo_fim_input",
                 )
             with col_periodo:
@@ -69,6 +79,8 @@ with st.container(key="topbar"):
 if buscar_dados:
     if data_inicio_selecionada > data_fim_selecionada:
         st.error("A data inicial não pode ser depois da data final.")
+    elif (data_fim_selecionada - data_inicio_selecionada).days > 365:
+        st.error("O intervalo máximo permitido é de 1 ano (365 dias), igual ao LinkedIn Analytics.")
     else:
         st.session_state.periodo_inicio = data_inicio_selecionada
         st.session_state.periodo_fim = data_fim_selecionada
