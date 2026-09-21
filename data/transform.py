@@ -95,9 +95,7 @@ def mix_de_interacoes(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def top_publicacoes(df: pd.DataFrame) -> pd.DataFrame:
-    """Ordena por data (mais recentes primeiro) — no wireframe as 4 publicações
-    do mês aparecem todas; se houver mais de 4 no período, pega as de maior
-    engajamento."""
+    """Ordena por engajamento e retorna as top 5 publicações."""
     cols = ["data", "resumo", "impressoes", "cliques", "reacoes", "engajamento_pct"]
     ordenado = df.sort_values("engajamento_pct", ascending=False)
-    return ordenado[cols].head(6).reset_index(drop=True)
+    return ordenado[cols].head(5).reset_index(drop=True)

@@ -98,8 +98,24 @@ def carregar_top_publicacoes_excel(data_inicio, data_fim) -> pd.DataFrame:
             "engajamento_pct": engajamento
         }).dropna(subset=["data"])
 
-        # Retorna ordenado por impressões, limitado estritamente aos 10 principais
-        return df_posts.sort_values(by="impressoes", ascending=False).head(5)
+        if df_posts.empty:
+            return pd.DataFrame()
+
+        # Prioriza as publicações do mês mais recente do período selecionado.
+        # Caso o mês mais recente não tenha 5 posts, completa com os melhores dos meses anteriores.
+        mes_recente = df_posts["data"].dt.to_period("M").max()
+        posts_mes_recente = df_posts[df_posts["data"].dt.to_period("M") == mes_recente]
+        posts_mes_recente_top = posts_mes_recente.sort_values(by="impressoes", ascending=False).head(5)
+
+        if len(posts_mes_recente_top) < 5:
+            faltam = 5 - len(posts_mes_recente_top)
+            outros_meses = df_posts[df_posts["data"].dt.to_period("M") != mes_recente]
+            outros_top = outros_meses.sort_values(by="impressoes", ascending=False).head(faltam)
+            top5 = pd.concat([posts_mes_recente_top, outros_top], ignore_index=True)
+        else:
+            top5 = posts_mes_recente_top
+
+        return top5.sort_values(by="impressoes", ascending=False).reset_index(drop=True)
     except Exception as e:
         print(f"Erro ao carregar top publicações: {e}")
         return pd.DataFrame()

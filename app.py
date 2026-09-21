@@ -264,7 +264,7 @@ with dashboard_panel:
     c1, c2, c3 = st.columns([2, 1.6, 1.4]) 
 
     with c1:
-        st.markdown("<div class='section-title'>🏆 TOP 10 PUBLICAÇÕES DO MÊS</div>", unsafe_allow_html=True)
+        st.markdown("<div class='section-title'>🏆 TOP 5 PUBLICAÇÕES DO MÊS</div>", unsafe_allow_html=True)
         render_top_publicacoes(df_top)
 
     with c2:
