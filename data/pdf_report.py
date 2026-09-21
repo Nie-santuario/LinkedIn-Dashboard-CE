@@ -168,9 +168,17 @@ def gerar_pdf_dashboard(
     for _, row in df_top.head(5).iterrows():
         data = row.get("data")
         data_label = data.strftime("%d/%m/%Y") if hasattr(data, "strftime") else data
+        
+        resumo_texto = html.escape(str(row.get("resumo", ""))[:110])
+        link_pub = row.get("link", "")
+        if link_pub and pd.notna(link_pub):
+            # ReportLab suporta <link href="url">Texto</link>
+            # e <font color="blue">Texto</font>
+            resumo_texto = f"<link href='{html.escape(str(link_pub))}'><font color='#1f77b4'><u>{resumo_texto}</u></font></link>"
+            
         top_rows.append([
             _text(data_label, small_style),
-            _text(html.escape(str(row.get("resumo", ""))[:110]), small_style),
+            _text(resumo_texto, small_style),
             _text(_number(row.get("impressoes", 0)), body_right),
             _text(_number(row.get("cliques", 0)), body_right),
             _text(_number(row.get("reacoes", 0)), body_right),
