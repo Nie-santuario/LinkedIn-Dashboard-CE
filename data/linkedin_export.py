@@ -59,7 +59,6 @@ def carregar_top_publicacoes_excel(data_inicio, data_fim) -> pd.DataFrame:
         cols_lower = {str(c).strip().lower(): c for c in posts.columns}
         
         col_texto = next((cols_lower[c] for c in cols_lower if any(k in c for k in ['texto', 'publicação', 'content', 'post', 'title'])), posts.columns[0])
-        col_link = next((cols_lower[c] for c in cols_lower if 'link' in c), posts.columns[1])
         col_data = next((cols_lower[c] for c in cols_lower if any(k in c for k in ['data', 'date', 'criação', 'published'])), posts.columns[5])
         col_imp = next((cols_lower[c] for c in cols_lower if any(k in c for k in ['impress', 'visualiz'])), posts.columns[3])
         col_cli = next((cols_lower[c] for c in cols_lower if any(k in c for k in ['clique', 'click'])), posts.columns[6])
@@ -78,8 +77,6 @@ def carregar_top_publicacoes_excel(data_inicio, data_fim) -> pd.DataFrame:
         textos_brutos = posts_periodo[col_texto].astype(str).fillna("Publicação sem texto")
         textos_curtos = textos_brutos.str.replace(r'\s+', ' ', regex=True).str.slice(0, 75)
         textos_finais = textos_curtos.where(textos_brutos.str.len() <= 75, textos_curtos + '...')
-        
-        links = posts_periodo[col_link].astype(str).fillna("")
 
         imp = pd.to_numeric(posts_periodo[col_imp], errors="coerce").fillna(0)
         cli = pd.to_numeric(posts_periodo[col_cli], errors="coerce").fillna(0)
@@ -93,7 +90,6 @@ def carregar_top_publicacoes_excel(data_inicio, data_fim) -> pd.DataFrame:
         df_posts = pd.DataFrame({
             "data": posts_periodo["_data"].dt.normalize(),
             "resumo": textos_finais,
-            "link": links,
             "impressoes": imp,
             "cliques": cli,
             "reacoes": rea,

@@ -144,14 +144,7 @@ def render_top_publicacoes(df_top):
     for _, row in df_top.iterrows():
         cols = st.columns([1.2, 3, 1, 1, 1, 1.2])
         cols[0].markdown(f"<span style='font-size:12px'>{row['data'].strftime('%d/%m/%Y')}</span>", unsafe_allow_html=True)
-        
-        link_pub = row.get('link', '')
-        if link_pub and pd.notna(link_pub):
-            resumo_html = f"<a href='{link_pub}' target='_blank' style='font-size:12px; text-decoration:none; color:{COR_AZUL}; font-weight:600;'>{row['resumo']}</a>"
-        else:
-            resumo_html = f"<span style='font-size:12px'>{row['resumo']}</span>"
-            
-        cols[1].markdown(resumo_html, unsafe_allow_html=True)
+        cols[1].markdown(f"<span style='font-size:12px'>{row['resumo']}</span>", unsafe_allow_html=True)
         cols[2].markdown(f"<b>{int(row['impressoes'])}</b>", unsafe_allow_html=True)
         cols[3].markdown(f"{int(row['cliques'])}", unsafe_allow_html=True)
         cols[4].markdown(f"{int(row['reacoes'])}", unsafe_allow_html=True)
