@@ -89,9 +89,12 @@ def get_valid_token(app_name: str) -> str | None:
             if "refresh_token" in data:
                 bundle.refresh_token = data["refresh_token"]
         except requests.HTTPError as e:
+            cod = e.response.status_code if e.response is not None else "erro"
             st.warning(
-                f"Falha ao renovar token do app '{app_name}': {e}. "
-                "Usando o token atual até expirar de vez — atualize os secrets em breve."
+                f"Não consegui renovar o token do app '{app_name}' "
+                f"(o LinkedIn recusou com HTTP {cod}). Usando o token atual até "
+                "expirar de vez — atualize os tokens no secrets (local e "
+                "Streamlit Cloud) em breve."
             )
 
     return bundle.access_token

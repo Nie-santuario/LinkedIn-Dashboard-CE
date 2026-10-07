@@ -1,4 +1,5 @@
 import datetime as dt
+import requests
 import streamlit as st
 
 from ui.login import credenciais_login, render_tela_login
@@ -35,6 +36,36 @@ st.session_state.setdefault("periodo_inicio", _DATA_MINIMA)
 st.session_state.setdefault("periodo_fim", _HOJE)
 st.session_state.setdefault("consultar_api", False)
 st.session_state.setdefault("status_api", [])
+
+
+def _descricao_erro_api(e: Exception) -> str:
+    """Traduz uma exceção da API do LinkedIn numa frase clara em português."""
+    if isinstance(e, requests.HTTPError) and e.response is not None:
+        cod = e.response.status_code
+        if cod == 401:
+            return (
+                "token do LinkedIn expirado ou inválido (HTTP 401) — "
+                "gere tokens novos no LinkedIn Developer Portal e atualize os "
+                "secrets (local e Streamlit Cloud)"
+            )
+        if cod == 403:
+            return (
+                "sem permissão para estes dados (HTTP 403) — "
+                "confira se o app tem os produtos liberados no LinkedIn Developer Portal"
+            )
+        if cod == 429:
+            return (
+                "limite de consultas da API atingido (HTTP 429) — "
+                "o cache tenta sozinho em até 12 horas"
+            )
+        if cod >= 500:
+            return f"o LinkedIn está com erro no servidor (HTTP {cod}) — tente novamente mais tarde"
+        return f"erro {cod} ao consultar a API do LinkedIn"
+    if isinstance(e, requests.Timeout):
+        return "tempo esgotado ao consultar a API do LinkedIn (conexão lenta)"
+    if isinstance(e, requests.ConnectionError):
+        return "sem conexão com a API do LinkedIn (verifique a internet do servidor)"
+    return f"{type(e).__name__}: {e}"
 
 with st.container(key="topbar"):
     with st.form("periodo_form", border=False):
@@ -131,7 +162,7 @@ with st.status("Carregando dados oficiais...", expanded=True) as consulta_status
         status_api.append(msg_api)
         st.info(msg_api)
     except Exception as e:
-        msg_falha = f"API indisponível ({type(e).__name__}: {e}) — usando exportação oficial."
+        msg_falha = f"API indisponível — {_descricao_erro_api(e)} — usando exportação oficial."
         status_api.append(msg_falha)
         st.warning(msg_falha)
 
