@@ -9,6 +9,18 @@ def _content_file() -> Path:
         raise FileNotFoundError("Exportação *_content_*.xls não encontrada em export_excel")
     return files[-1]
 
+def data_atualizacao_export() -> str:
+    """Data máxima dos dados da planilha (frescor do fallback), dd/mm/aaaa."""
+    try:
+        metricas = pd.read_excel(_content_file(), sheet_name=0, header=1, usecols=[0])
+        datas = pd.to_datetime(metricas.iloc[:, 0], dayfirst=False, errors="coerce").dropna()
+        if datas.empty:
+            return "desconhecida"
+        return datas.max().strftime("%d/%m/%Y")
+    except Exception:
+        return "desconhecida"
+
+
 def carregar_metricas(data_inicio, data_fim) -> tuple[pd.DataFrame, int, dict]:
     """Carrega a aba diária (Aba 0) para alimentar os gráficos e KPIs globais."""
     arquivo = _content_file()
@@ -38,7 +50,12 @@ def carregar_metricas(data_inicio, data_fim) -> tuple[pd.DataFrame, int, dict]:
     ).dropna(subset=["data"])
     
     tipos = posts_periodo.iloc[:, 2].astype(str).str.lower() if not posts_periodo.empty else []
-    dados.attrs["publicacoes"] = int((tipos != "total").sum()) if len(tipos) > 0 else len(dados)
+    # Conta posts únicos (linhas Orgânico/Patrocinado/Total do mesmo post
+    # não podem virar várias publicações).
+    if len(tipos) > 0:
+        dados.attrs["publicacoes"] = int(posts_periodo.iloc[:, 1].astype(str).nunique())
+    else:
+        dados.attrs["publicacoes"] = len(dados)
 
     impressoes_unicas = total(4)
     pagos = {
@@ -63,9 +80,19 @@ def carregar_top_publicacoes_excel(data_inicio, data_fim) -> pd.DataFrame:
         col_data = next((cols_lower[c] for c in cols_lower if any(k in c for k in ['data', 'date', 'criação', 'published'])), posts.columns[5])
         col_imp = next((cols_lower[c] for c in cols_lower if any(k in c for k in ['impress', 'visualiz'])), posts.columns[3])
         col_cli = next((cols_lower[c] for c in cols_lower if any(k in c for k in ['clique', 'click'])), posts.columns[6])
-        col_rea = next((cols_lower[c] for c in cols_lower if any(k in c for k in ['reaç', 'reaction', 'like'])), posts.columns[9])
+        col_rea = next((cols_lower[c] for c in cols_lower if any(k in c for k in ['reaç', 'reaction', 'like', 'gostaram', 'curti'])), posts.columns[9])
         col_com = next((cols_lower[c] for c in cols_lower if any(k in c for k in ['coment', 'comment'])), posts.columns[12])
         col_comp = next((cols_lower[c] for c in cols_lower if any(k in c for k in ['compart', 'share'])), posts.columns[15])
+
+        # A aba traz linhas separadas por tipo (Orgânico / Patrocinado / Total) para
+        # posts promovidos; sem consolidar, o mesmo post entra no ranking 2x.
+        col_tipo = next((cols_lower[c] for c in cols_lower if 'tipo de publicação' in c), None)
+        if col_tipo is not None and col_link in posts.columns:
+            tipo_norm = posts[col_tipo].astype(str).str.strip().str.lower()
+            links_total = set(posts.loc[tipo_norm == 'total', col_link].astype(str))
+            if links_total:
+                posts = posts[tipo_norm.eq('total') | ~posts[col_link].astype(str).isin(links_total)].copy()
+            posts = posts.drop_duplicates(subset=[col_link], keep='first').copy()
 
         posts["_data"] = pd.to_datetime(posts[col_data], dayfirst=False, errors="coerce")
         inicio = pd.to_datetime(data_inicio)
@@ -105,21 +132,20 @@ def carregar_top_publicacoes_excel(data_inicio, data_fim) -> pd.DataFrame:
         if df_posts.empty:
             return pd.DataFrame()
 
-        # Prioriza as publicações do mês mais recente do período selecionado.
-        # Caso o mês mais recente não tenha 5 posts, completa com os melhores dos meses anteriores.
-        mes_recente = df_posts["data"].dt.to_period("M").max()
-        posts_mes_recente = df_posts[df_posts["data"].dt.to_period("M") == mes_recente]
-        posts_mes_recente_top = posts_mes_recente.sort_values(by="impressoes", ascending=False).head(5)
+        # Top 5 do mês mais recente; se faltar, retrocede mês a mês até fechar 5
+        # (não pula direto pros melhores da história — posts do mês passado têm
+        # prioridade sobre os antigos).
+        ordenado = df_posts.sort_values("data", ascending=False)
+        restam = 5
+        pedacos = []
+        for _, grupo in ordenado.groupby(ordenado["data"].dt.to_period("M"), sort=False):
+            if restam <= 0:
+                break
+            top_do_mes = grupo.sort_values(by="impressoes", ascending=False).head(restam)
+            pedacos.append(top_do_mes)
+            restam -= len(top_do_mes)
 
-        if len(posts_mes_recente_top) < 5:
-            faltam = 5 - len(posts_mes_recente_top)
-            outros_meses = df_posts[df_posts["data"].dt.to_period("M") != mes_recente]
-            outros_top = outros_meses.sort_values(by="impressoes", ascending=False).head(faltam)
-            top5 = pd.concat([posts_mes_recente_top, outros_top], ignore_index=True)
-        else:
-            top5 = posts_mes_recente_top
-
-        return top5.sort_values(by="impressoes", ascending=False).reset_index(drop=True)
+        return pd.concat(pedacos).sort_values(by="impressoes", ascending=False).reset_index(drop=True)
     except Exception as e:
         print(f"Erro ao carregar top publicações: {e}")
         return pd.DataFrame()

@@ -1,7 +1,7 @@
 import datetime as dt
 import streamlit as st
 
-from config import get_secret
+from ui.login import credenciais_login, render_tela_login
 from ui.styles import load_css
 from ui.components import (
     render_kpis,
@@ -13,11 +13,19 @@ from ui.components import (
 )
 from data import transform, insights_store
 from data import linkedin_export
+from data import api_source
 from data.pdf_report import gerar_pdf_dashboard
-from api import organic, paid
 
 st.set_page_config(page_title="Dashboard LinkedIn", layout="wide", initial_sidebar_state="collapsed")
 load_css()
+
+# Acesso protegido: só liga se os secrets tiverem a seção [login]
+# (padrão no painel do Streamlit Cloud). Sem a seção o app abre direto.
+# Antes de qualquer leitura de dado — nada renderiza antes de logar.
+credenciais = credenciais_login(st.secrets)
+if credenciais and not st.session_state.get("logado"):
+    render_tela_login(credenciais)
+    st.stop()
 
 # Restrição de período: máximo 1 ano para trás (igual ao LinkedIn Analytics)
 _HOJE = dt.date.today()
@@ -96,7 +104,7 @@ if data_inicio > data_fim:
 
 
 # --------------------------------------------------------------------------
-# 2. Carregamento dos dados
+# 2. Carregamento dos dados (API do LinkedIn com fallback para exportação)
 # --------------------------------------------------------------------------
 status_api = []
 pagos = {
@@ -108,46 +116,41 @@ pagos = {
 }
 
 with st.status("Carregando dados oficiais...", expanded=True) as consulta_status:
-    organization_urn = get_secret("LINKEDIN_ORGANIZATION_URN")
-    ad_account_urn = get_secret("LINKEDIN_AD_ACCOUNT_URN")
-    
+    fonte_api = False
     try:
-        posts_reais = organic.buscar_posts_organicos(organization_urn)
-        elementos = organic.buscar_estatisticas_organicas(organization_urn)
-        msg_org = f"Orgânica: {len(posts_reais)} posts e {len(elementos)} registros de estatísticas."
-        status_api.append(msg_org)
-        st.info(msg_org)
-    except Exception as e:
-        msg_erro_org = f"Orgânica: falhou ({type(e).__name__}: {e})."
-        status_api.append(msg_erro_org)
-        st.error(msg_erro_org)
-        elementos = []
-
-    try:
-        analytics_pagos = paid.buscar_analytics_pagos(
-            ad_account_urn, data_inicio.isoformat(), data_fim.isoformat()
+        df_posts_bruto, impressoes_unicas, pagos = api_source.carregar_metricas(data_inicio, data_fim)
+        df_top = api_source.carregar_top_publicacoes(data_inicio, data_fim)
+        comparativo = api_source.carregar_comparativo(data_inicio, data_fim)
+        fonte_api = True
+        msg_api = (
+            f"Fonte: API do LinkedIn (ao vivo) — "
+            f"{int(df_posts_bruto['impressoes'].sum())} impressões | "
+            f"{int(pagos['impressoes'])} patrocinadas | "
+            f"{df_posts_bruto.attrs.get('publicacoes', 0)} publicações."
         )
-        pagos = transform.metricas_pagas(analytics_pagos)
-        msg_paga = f"Paga: {len(analytics_pagos)} registros | {pagos['impressoes']} impressões patrocinadas | {pagos['cliques']} cliques pagos."
-        status_api.append(msg_paga)
-        st.info(msg_paga)
+        status_api.append(msg_api)
+        st.info(msg_api)
     except Exception as e:
-        msg_erro_paga = f"Paga: falhou ({type(e).__name__}: {e})."
-        status_api.append(msg_erro_paga)
-        st.error(msg_erro_paga)
-        analytics_pagos = []
+        msg_falha = f"API indisponível ({type(e).__name__}: {e}) — usando exportação oficial."
+        status_api.append(msg_falha)
+        st.warning(msg_falha)
 
-    try:
-        df_posts_bruto, impressoes_unicas, pagos_export = linkedin_export.carregar_metricas(
-            data_inicio, data_fim
-        )
-        pagos = pagos_export
-        msg_fonte = "Dados exibidos: exportação oficial do LinkedIn (produção)."
-        status_api.append(msg_fonte)
-        st.info(msg_fonte)
-    except Exception as e:
-        st.error(f"ERRO CRÍTICO NA PLANILHA DE EXPORTAÇÃO: {e}")
-        raise e
+    if not fonte_api:
+        try:
+            df_posts_bruto, impressoes_unicas, pagos = linkedin_export.carregar_metricas(
+                data_inicio, data_fim
+            )
+            df_top = linkedin_export.carregar_top_publicacoes_excel(data_inicio, data_fim)
+            comparativo = linkedin_export.carregar_comparativo(data_inicio, data_fim)
+            msg_fonte = (
+                "Dados exibidos: exportação oficial do LinkedIn (fallback) — "
+                f"planilha atualizada até {linkedin_export.data_atualizacao_export()}."
+            )
+            status_api.append(msg_fonte)
+            st.info(msg_fonte)
+        except Exception as e:
+            st.error(f"ERRO CRÍTICO NA PLANILHA DE EXPORTAÇÃO: {e}")
+            raise e
 
     consulta_status.update(label="Consulta concluída", state="complete", expanded=False)
 
@@ -163,15 +166,8 @@ df_periodo = transform.calcular_metricas_por_post(df_periodo)
 kpis = transform.kpis_periodo(df_periodo, impressoes_unicas, pagos)
 df_mix = transform.mix_de_interacoes(df_periodo)
 
-df_top = linkedin_export.carregar_top_publicacoes_excel(data_inicio, data_fim)
 if df_top.empty:
     df_top = transform.top_publicacoes(df_periodo)
-
-try:
-    comparativo = linkedin_export.carregar_comparativo(data_inicio, data_fim)
-except Exception as e:
-    st.error(f"Erro ao carregar comparativo mensal da planilha: {e}")
-    raise e
 
 # Instanciação prévia das figuras Plotly para a tela e para o PDF
 fig_imp = render_grafico_impressoes(df_periodo)
