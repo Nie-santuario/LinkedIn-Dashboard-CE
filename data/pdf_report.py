@@ -71,10 +71,10 @@ ALT_UTIL = landscape(A4)[1] - MARGEM_T - MARGEM_B  # 186 mm
 CLIENTE = "Centro de Eventos Padre Vítor Coelho de Almeida"
 TITULO_APP = "DASHBOARD DE RESULTADOS | LINKEDIN"
 
-# Quantos blocos de insight cabem na página 3 do relatório. Abaixo de 4 a
-# página fica com buraco; acima de 6 o conteúdo passa da folha.
+# Quantos blocos de insight a página 3 do relatório mostra no mínimo (para
+# não ficar com buraco). Não há máximo: o que sobrar segue para a página
+# seguinte, em vez de sumir do relatório.
 MIN_BLOCOS_INSIGHTS = 4
-MAX_BLOCOS_INSIGHTS = 6
 
 # Caracteres aceitos no PDF. A Helvetica base 14 nao tem emojis nem travessão:
 # sem este filtro eles viram quadrados pretos silenciosamente. Todo o ASCII
@@ -970,9 +970,10 @@ def _faixa_formulas():
 def _grid_insights(insights: list[dict]):
     """Insights em coluna única, com ícone vetorial e respiro entre os itens.
 
-    A página 3 do relatório comporta até 6 blocos (a 7º em diante seria
-    cortado em silêncio, o que já enganou o time: um texto digitado depois
-    do 4º item, separado por linha em branco, simplesmente sumia).
+    Renderiza TODOS os blocos: se o conteúdo não couber na página 3, o
+    reportlab segue para a página seguinte. Antes havia um corte em 4 (depois
+    6) blocos e o excedente sumia em silêncio do relatório — o time achava
+    que o texto não tinha sido salvo.
     """
     estilo_tit = ParagraphStyle(
         "it", fontName="Helvetica-Bold", fontSize=9.5, leading=12, textColor=AZUL_INSTITUCIONAL,
@@ -982,7 +983,7 @@ def _grid_insights(insights: list[dict]):
     )
 
     celulas = []
-    for item in insights[:MAX_BLOCOS_INSIGHTS]:
+    for item in insights:
         titulo = _limpa(item.get("titulo", ""))
         texto = _limpa(item.get("texto", ""))
         corpo = f"<b>{titulo}</b>"
