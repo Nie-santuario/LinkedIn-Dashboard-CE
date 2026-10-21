@@ -1,4 +1,5 @@
 import datetime as dt
+import hashlib
 import requests
 import streamlit as st
 
@@ -232,6 +233,14 @@ else:
 # Sem isso o relatório seria reconstruído a cada rerun do Streamlit.
 # A geração é blindada: se o PDF falhar, o dashboard continua funcionando
 # (só o export fica indisponível) — relatório é acessório, nunca o centro.
+#
+# O PDF usa o texto ATUAL da caixa "Insights do mês", que é editável: se o
+# time digitou algo, o relatório tem que sair com o que está na tela.
+if "insights_dinamicos_view" in st.session_state:
+    _texto_insights_pdf = st.session_state["insights_dinamicos_view"]
+else:
+    _texto_insights_pdf = texto_insights
+
 _assinatura_pdf = (
     data_inicio,
     data_fim,
@@ -241,6 +250,7 @@ _assinatura_pdf = (
     int(kpis.get("publicacoes", 0)),
     len(df_top),
     len(comparativo),
+    hashlib.md5(_texto_insights_pdf.encode("utf-8")).hexdigest(),
 )
 if st.session_state.get("pdf_assinatura") != _assinatura_pdf:
     try:
@@ -252,7 +262,7 @@ if st.session_state.get("pdf_assinatura") != _assinatura_pdf:
             df_top=df_top,
             df_mix=df_mix,
             comparativo=comparativo,
-            texto_insights=texto_insights,
+            texto_insights=_texto_insights_pdf,
             fonte_dados="API do LinkedIn" if fonte_api else "Exportação oficial do LinkedIn",
             data_geracao=dt.datetime.now(),
         )

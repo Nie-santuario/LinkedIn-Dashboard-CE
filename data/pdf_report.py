@@ -210,14 +210,18 @@ _ICONES_PADRAO = ("pessoas", "estrutura", "trofeu", "alvo")
 
 
 def _icone_do_insight(emoji: str, titulo: str, indice: int) -> str:
-    """Ícone do insight: pelo emoji original, pelo título ou pela posição."""
+    """Ícone do insight: pelo emoji original ou pelo tema do título.
+
+    Texto digitado à mão (sem emoji e fora dos temas conhecidos) fica sem
+    ícone: é melhor um bloco limpo do que um ícone aleatório.
+    """
     if emoji and emoji in _ICONE_POR_EMOJI:
         return _ICONE_POR_EMOJI[emoji]
     texto = (titulo or "").lower()
     for palavra, icone in _ICONE_POR_PALAVRA:
         if palavra in texto:
             return icone
-    return _ICONES_PADRAO[indice % len(_ICONES_PADRAO)]
+    return ""
 
 
 def _blocos_insights(texto: str) -> list[tuple[str, str, str]]:
@@ -410,6 +414,8 @@ class _Icone(Flowable):
     def draw(self):
         c = self.canv
         s = self.width
+        if not self.tipo:
+            return  # insight escrito à mão, sem ícone temático
         c.saveState()
         c.setFillColor(AZUL_INSTITUCIONAL)
         c.setStrokeColor(AZUL_INSTITUCIONAL)
