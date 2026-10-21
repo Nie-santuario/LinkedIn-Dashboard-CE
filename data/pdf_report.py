@@ -71,6 +71,11 @@ ALT_UTIL = landscape(A4)[1] - MARGEM_T - MARGEM_B  # 186 mm
 CLIENTE = "Centro de Eventos Padre Vítor Coelho de Almeida"
 TITULO_APP = "DASHBOARD DE RESULTADOS | LINKEDIN"
 
+# Quantos blocos de insight cabem na página 3 do relatório. Abaixo de 4 a
+# página fica com buraco; acima de 6 o conteúdo passa da folha.
+MIN_BLOCOS_INSIGHTS = 4
+MAX_BLOCOS_INSIGHTS = 6
+
 # Caracteres aceitos no PDF. A Helvetica base 14 nao tem emojis nem travessão:
 # sem este filtro eles viram quadrados pretos silenciosamente. Todo o ASCII
 # imprimivel e os acentos Latin-1 passam; o resto e descartado.
@@ -963,7 +968,12 @@ def _faixa_formulas():
 
 
 def _grid_insights(insights: list[dict]):
-    """Insights em coluna única, com ícone vetorial e respiro entre os itens."""
+    """Insights em coluna única, com ícone vetorial e respiro entre os itens.
+
+    A página 3 do relatório comporta até 6 blocos (a 7º em diante seria
+    cortado em silêncio, o que já enganou o time: um texto digitado depois
+    do 4º item, separado por linha em branco, simplesmente sumia).
+    """
     estilo_tit = ParagraphStyle(
         "it", fontName="Helvetica-Bold", fontSize=9.5, leading=12, textColor=AZUL_INSTITUCIONAL,
     )
@@ -972,7 +982,7 @@ def _grid_insights(insights: list[dict]):
     )
 
     celulas = []
-    for item in insights[:4]:
+    for item in insights[:MAX_BLOCOS_INSIGHTS]:
         titulo = _limpa(item.get("titulo", ""))
         texto = _limpa(item.get("texto", ""))
         corpo = f"<b>{titulo}</b>"
@@ -985,7 +995,7 @@ def _grid_insights(insights: list[dict]):
 
     # celulas vazias precisam ser Paragraph: string crua quebra o reportlab
     vazia = Paragraph("", estilo_tit)
-    while len(celulas) < 4:
+    while len(celulas) < MIN_BLOCOS_INSIGHTS:
         celulas.append([vazia, vazia])
 
     tabela = Table(celulas, colWidths=[9 * mm, LARG - 9 * mm])

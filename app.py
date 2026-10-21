@@ -245,12 +245,12 @@ if "insights_dinamicos_view" in st.session_state:
 else:
     _texto_insights_pdf = texto_insights
 
-# Texto de insights já salvo pelo time (persiste entre recarregamentos).
-# Se não houver nada salvo, o campo começa com o texto automático.
-if "insights_salvo" not in st.session_state:
-    st.session_state["insights_salvo"] = insights_store.carregar_insights() or ""
-_texto_insights_salvo = st.session_state["insights_salvo"]
-_texto_insights_inicial = _texto_insights_salvo or texto_insights
+# Texto de insights já salvo pelo time: fica apenas como REGISTRO do último
+# texto salvo. A caixa da tela NUNCA é inicializada com ele — ao recarregar a
+# página (F5) ela volta aos insights automáticos do período, como na primeira
+# abertura. O PDF usa o conteúdo atual da caixa (o que o time escreveu).
+_texto_insights_salvo = insights_store.carregar_insights() or ""
+st.session_state["insights_salvo"] = _texto_insights_salvo
 
 st.session_state["pdf_dados"] = dict(
     data_inicio=data_inicio,
@@ -397,13 +397,13 @@ with dashboard_panel:
         st.markdown("<div class='section-title'>💡 INSIGHTS DO MÊS</div>", unsafe_allow_html=True)
         st.text_area(
             "Insights automáticos do período:",
-            value=_texto_insights_inicial,
+            value=texto_insights,
             height=290,
             label_visibility="collapsed",
             key="insights_dinamicos_view",
             on_change=_ao_mudar_insights,
         )
-        _texto_atual = st.session_state.get("insights_dinamicos_view", _texto_insights_inicial)
+        _texto_atual = st.session_state.get("insights_dinamicos_view", texto_insights)
         _tem_alteracao = _texto_atual.strip() != _texto_insights_salvo.strip()
         if st.button(
             "💾 Salvar insights",
