@@ -228,16 +228,33 @@ if not df_top.empty:
 else:
     texto_insights = "Sem dados suficientes para gerar insights automáticos no período selecionado."
 
-# Geração segura do PDF utilizando o seu reportlab customizado original
-pdf_bytes = gerar_pdf_dashboard(
-    data_inicio=data_inicio,
-    data_fim=data_fim,
-    kpis=kpis,
-    df_top=df_top,
-    df_mix=df_mix,
-    comparativo=comparativo,
-    texto_insights=texto_insights,
+# Geração do PDF: só refaz quando os dados ou o período mudam de fato.
+# Sem isso o relatório seria reconstruído a cada rerun do Streamlit.
+_assinatura_pdf = (
+    data_inicio,
+    data_fim,
+    int(kpis.get("impressoes", 0)),
+    int(kpis.get("cliques", 0)),
+    int(kpis.get("reacoes", 0)),
+    int(kpis.get("publicacoes", 0)),
+    len(df_top),
+    len(comparativo),
 )
+if st.session_state.get("pdf_assinatura") != _assinatura_pdf:
+    st.session_state["pdf_bytes"] = gerar_pdf_dashboard(
+        data_inicio=data_inicio,
+        data_fim=data_fim,
+        kpis=kpis,
+        df_periodo=df_periodo,
+        df_top=df_top,
+        df_mix=df_mix,
+        comparativo=comparativo,
+        texto_insights=texto_insights,
+        fonte_dados="API do LinkedIn" if fonte_api else "Exportação oficial do LinkedIn",
+        data_geracao=dt.datetime.now(),
+    )
+    st.session_state["pdf_assinatura"] = _assinatura_pdf
+pdf_bytes = st.session_state["pdf_bytes"]
 
 # --------------------------------------------------------------------------
 # 4. Layout

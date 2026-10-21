@@ -21,8 +21,12 @@ def calcular_metricas_por_post(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     interacoes = df["reacoes"] + df["comentarios"] + df["compartilhamentos"] + df["cliques"]
 
-    df["engajamento_pct"] = (interacoes / df["impressoes"].replace(0, pd.NA) * 100).fillna(0).round(2)
-    df["ctr_pct"] = (df["cliques"] / df["impressoes"].replace(0, pd.NA) * 100).fillna(0).round(2)
+    # denominador em float: dias sem impressões viram NaN em vez de texto,
+    # o que mantem as colunas como número (antes saíam como object) e evita
+    # divisão por zero. A matemática é a mesma do cálculo anterior.
+    impressoes = df["impressoes"].astype(float).replace(0, float("nan"))
+    df["engajamento_pct"] = (interacoes.astype(float) / impressoes * 100).fillna(0).round(2)
+    df["ctr_pct"] = (df["cliques"].astype(float) / impressoes * 100).fillna(0).round(2)
     df["interacoes_totais"] = interacoes
     return df
 
