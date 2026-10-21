@@ -230,6 +230,8 @@ else:
 
 # Geração do PDF: só refaz quando os dados ou o período mudam de fato.
 # Sem isso o relatório seria reconstruído a cada rerun do Streamlit.
+# A geração é blindada: se o PDF falhar, o dashboard continua funcionando
+# (só o export fica indisponível) — relatório é acessório, nunca o centro.
 _assinatura_pdf = (
     data_inicio,
     data_fim,
@@ -241,34 +243,46 @@ _assinatura_pdf = (
     len(comparativo),
 )
 if st.session_state.get("pdf_assinatura") != _assinatura_pdf:
-    st.session_state["pdf_bytes"] = gerar_pdf_dashboard(
-        data_inicio=data_inicio,
-        data_fim=data_fim,
-        kpis=kpis,
-        df_periodo=df_periodo,
-        df_top=df_top,
-        df_mix=df_mix,
-        comparativo=comparativo,
-        texto_insights=texto_insights,
-        fonte_dados="API do LinkedIn" if fonte_api else "Exportação oficial do LinkedIn",
-        data_geracao=dt.datetime.now(),
-    )
+    try:
+        st.session_state["pdf_bytes"] = gerar_pdf_dashboard(
+            data_inicio=data_inicio,
+            data_fim=data_fim,
+            kpis=kpis,
+            df_periodo=df_periodo,
+            df_top=df_top,
+            df_mix=df_mix,
+            comparativo=comparativo,
+            texto_insights=texto_insights,
+            fonte_dados="API do LinkedIn" if fonte_api else "Exportação oficial do LinkedIn",
+            data_geracao=dt.datetime.now(),
+        )
+        st.session_state["pdf_erro"] = ""
+    except Exception as _erro_pdf:
+        st.session_state["pdf_bytes"] = None
+        st.session_state["pdf_erro"] = f"{type(_erro_pdf).__name__}: {_erro_pdf}"
     st.session_state["pdf_assinatura"] = _assinatura_pdf
 pdf_bytes = st.session_state["pdf_bytes"]
+pdf_erro = st.session_state.get("pdf_erro", "")
 
 # --------------------------------------------------------------------------
 # 4. Layout
 # --------------------------------------------------------------------------
 dashboard_panel = st.container(border=True)
 with dashboard_panel:
-    st.download_button(
-        "Exportar PDF",
-        data=pdf_bytes,
-        file_name=f"dashboard_linkedin_{data_inicio:%Y%m%d}_{data_fim:%Y%m%d}.pdf",
-        mime="application/pdf",
-        type="primary",
-        icon=":material/download:",
-    )
+    if pdf_bytes:
+        st.download_button(
+            "Exportar PDF",
+            data=pdf_bytes,
+            file_name=f"dashboard_linkedin_{data_inicio:%Y%m%d}_{data_fim:%Y%m%d}.pdf",
+            mime="application/pdf",
+            type="primary",
+            icon=":material/download:",
+        )
+    else:
+        st.warning(
+            "Não foi possível gerar o relatório em PDF agora "
+            f"({pdf_erro}). O dashboard segue funcionando normalmente."
+        )
     
     render_kpis(kpis)
 

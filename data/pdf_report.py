@@ -255,10 +255,20 @@ def _serie_numerica(valores) -> list[float]:
 
 
 def _escala(maximo, marcas: int = 4):
-    """Arredonda o topo do eixo para um valor 'redondo' e devolve as marcas."""
-    if not maximo or maximo <= 0:
+    """Arredonda o topo do eixo para um valor 'redondo' e devolve as marcas.
+
+    Protege contra NaN/inf: um único dia com valor inválido não pode
+    derrubar a geração inteira do relatório.
+    """
+    try:
+        maximo = float(maximo)
+    except (TypeError, ValueError):
+        maximo = 0.0
+    if not math.isfinite(maximo) or maximo <= 0:
         return 1.0, [0.0, 0.25, 0.5, 0.75, 1.0]
-    bruto = float(maximo) / marcas
+    bruto = maximo / marcas
+    if bruto <= 0 or not math.isfinite(bruto):
+        return maximo, [maximo * i / marcas for i in range(marcas + 1)]
     magnitude = 10 ** math.floor(math.log10(bruto))
     for fator in (1, 2, 2.5, 5, 10):
         passo = magnitude * fator
@@ -348,6 +358,17 @@ class _TituloSecao(Flowable):
 _MESES_PT = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"]
 
 
+def _numero_seguro(valor, padrao: float = 0.0) -> float:
+    """Converte para float ignorando NaN/inf e valores não numéricos."""
+    try:
+        numero = float(valor)
+    except (TypeError, ValueError):
+        return padrao
+    if not math.isfinite(numero):
+        return padrao
+    return numero
+
+
 def _agrupa_por_mes(df_periodo) -> list[tuple[str, float]]:
     """Agrega as impressões por mês: [(rótulo, valor), ...] em ordem cronológica."""
     if df_periodo is None or df_periodo.empty or "impressoes" not in df_periodo.columns:
@@ -360,10 +381,7 @@ def _agrupa_por_mes(df_periodo) -> list[tuple[str, float]]:
             continue
         if pd.isna(marca):
             continue
-        try:
-            valor = float(linha.get("impressoes", 0) or 0)
-        except (TypeError, ValueError):
-            valor = 0.0
+        valor = _numero_seguro(linha.get("impressoes", 0))
         chave = (marca.year, marca.month)
         grupos[chave] = grupos.get(chave, 0.0) + valor
     return [
@@ -545,18 +563,19 @@ class _GraficoBarrasTop(Flowable):
         c.setFillColor(colors.white)
         c.rect(0, 0, self.width, self.height, stroke=0, fill=1)
 
-        if not self.itens:
+        itens = [(rotulo, _numero_seguro(valor)) for rotulo, valor in self.itens]
+        if not itens:
             c.setFillColor(SUAVE)
             c.setFont("Helvetica", 8)
             c.drawCentredString(self.width / 2, self.height / 2, "Sem publicações no período")
             c.restoreState()
             return
 
-        maior = max(v for _, v in self.itens) or 1
-        altura_linha = ph / len(self.itens)
+        maior = max(v for _, v in itens) or 1
+        altura_linha = ph / len(itens)
         altura_barra = altura_linha * 0.52
 
-        for indice, (rotulo, valor) in enumerate(self.itens):
+        for indice, (rotulo, valor) in enumerate(itens):
             y = py0 + (altura_linha * (len(self.itens) - 1 - indice))
             # rótulo do post
             c.setFillColor(TEXTO)
