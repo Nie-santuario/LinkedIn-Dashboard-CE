@@ -229,17 +229,90 @@ if not df_top.empty:
 else:
     texto_insights = "Sem dados suficientes para gerar insights automáticos no período selecionado."
 
-# Geração do PDF: só refaz quando os dados ou o período mudam de fato.
-# Sem isso o relatório seria reconstruído a cada rerun do Streamlit.
+# Geração do PDF.
+#
+# Dois cuidados (bug reportado pelo Rafael):
+# 1. o relatório usa o texto ATUAL da caixa "Insights do mês", que é editável;
+# 2. o Streamlit só sincroniza esse campo no blur, e o download_button entrega
+#    o arquivo do render anterior. Por isso o PDF é regerado em três momentos:
+#    quando os dados mudam, quando o campo de insights é alterado (on_change) e
+#    quando o botão de export é clicado (on_click).
+#
 # A geração é blindada: se o PDF falhar, o dashboard continua funcionando
 # (só o export fica indisponível) — relatório é acessório, nunca o centro.
-#
-# O PDF usa o texto ATUAL da caixa "Insights do mês", que é editável: se o
-# time digitou algo, o relatório tem que sair com o que está na tela.
 if "insights_dinamicos_view" in st.session_state:
     _texto_insights_pdf = st.session_state["insights_dinamicos_view"]
 else:
     _texto_insights_pdf = texto_insights
+
+# Texto de insights já salvo pelo time (persiste entre recarregamentos).
+# Se não houver nada salvo, o campo começa com o texto automático.
+if "insights_salvo" not in st.session_state:
+    st.session_state["insights_salvo"] = insights_store.carregar_insights() or ""
+_texto_insights_salvo = st.session_state["insights_salvo"]
+_texto_insights_inicial = _texto_insights_salvo or texto_insights
+
+st.session_state["pdf_dados"] = dict(
+    data_inicio=data_inicio,
+    data_fim=data_fim,
+    kpis=kpis,
+    df_periodo=df_periodo,
+    df_top=df_top,
+    df_mix=df_mix,
+    comparativo=comparativo,
+    texto_insights=_texto_insights_pdf,
+    fonte_dados="API do LinkedIn" if fonte_api else "Exportação oficial do LinkedIn",
+    data_geracao=dt.datetime.now(),
+)
+
+
+def _gerar_pdf_atual() -> None:
+    """Regera o PDF com o estado atual da tela (usado nos callbacks)."""
+    dados = st.session_state.get("pdf_dados")
+    if not dados:
+        return
+    # O texto dos insights pode ter mudado depois que o script rodou (é o que
+    # acontece no on_change): usa sempre o valor mais recente do campo.
+    if "insights_dinamicos_view" in st.session_state:
+        dados = dict(dados)
+        dados["texto_insights"] = st.session_state["insights_dinamicos_view"]
+    try:
+        st.session_state["pdf_bytes"] = gerar_pdf_dashboard(**dados)
+        st.session_state["pdf_erro"] = ""
+    except Exception as _erro_pdf:
+        st.session_state["pdf_bytes"] = None
+        st.session_state["pdf_erro"] = f"{type(_erro_pdf).__name__}: {_erro_pdf}"
+
+
+def _salvar_insights() -> None:
+    """Grava o texto atual dos insights e regenera o PDF com ele.
+
+    Chamada por dois gatilhos: quando o campo perde o foco (on_change) e
+    quando o botão "Salvar insights" é clicado. O on_change é o que resolve
+    o problema do "clique fantasma": o Streamlit só sincroniza o campo no
+    blur, então é justamente aí que o texto passa a valer para o PDF.
+    """
+    texto_atual = st.session_state.get("insights_dinamicos_view", "")
+    insights_store.salvar_insights(texto_atual)
+    st.session_state["insights_salvo"] = texto_atual
+    _gerar_pdf_atual()
+
+
+def _ao_mudar_insights() -> None:
+    """on_change do campo de insights: salva sozinho e refaz o PDF."""
+    _salvar_insights()
+
+
+def _exportar_pdf() -> None:
+    """on_click do botão Exportar PDF: garante que o texto está salvo e o PDF em dia.
+
+    Limitação conhecida do Streamlit: o download_button entrega o arquivo do
+    render anterior. Como o texto é salvo no on_change (ao sair da caixa) e
+    também aqui, nada se perde — e o PDF atualizado sai no clique seguinte
+    ou logo após usar o botão "Salvar insights".
+    """
+    _salvar_insights()
+
 
 _assinatura_pdf = (
     data_inicio,
@@ -253,25 +326,9 @@ _assinatura_pdf = (
     hashlib.md5(_texto_insights_pdf.encode("utf-8")).hexdigest(),
 )
 if st.session_state.get("pdf_assinatura") != _assinatura_pdf:
-    try:
-        st.session_state["pdf_bytes"] = gerar_pdf_dashboard(
-            data_inicio=data_inicio,
-            data_fim=data_fim,
-            kpis=kpis,
-            df_periodo=df_periodo,
-            df_top=df_top,
-            df_mix=df_mix,
-            comparativo=comparativo,
-            texto_insights=_texto_insights_pdf,
-            fonte_dados="API do LinkedIn" if fonte_api else "Exportação oficial do LinkedIn",
-            data_geracao=dt.datetime.now(),
-        )
-        st.session_state["pdf_erro"] = ""
-    except Exception as _erro_pdf:
-        st.session_state["pdf_bytes"] = None
-        st.session_state["pdf_erro"] = f"{type(_erro_pdf).__name__}: {_erro_pdf}"
+    _gerar_pdf_atual()
     st.session_state["pdf_assinatura"] = _assinatura_pdf
-pdf_bytes = st.session_state["pdf_bytes"]
+pdf_bytes = st.session_state.get("pdf_bytes")
 pdf_erro = st.session_state.get("pdf_erro", "")
 
 # --------------------------------------------------------------------------
@@ -287,6 +344,7 @@ with dashboard_panel:
             mime="application/pdf",
             type="primary",
             icon=":material/download:",
+            on_click=_exportar_pdf,
         )
     else:
         st.warning(
@@ -339,11 +397,23 @@ with dashboard_panel:
         st.markdown("<div class='section-title'>💡 INSIGHTS DO MÊS</div>", unsafe_allow_html=True)
         st.text_area(
             "Insights automáticos do período:",
-            value=texto_insights,
-            height=320,
+            value=_texto_insights_inicial,
+            height=290,
             label_visibility="collapsed",
             key="insights_dinamicos_view",
+            on_change=_ao_mudar_insights,
         )
+        _texto_atual = st.session_state.get("insights_dinamicos_view", _texto_insights_inicial)
+        _tem_alteracao = _texto_atual.strip() != _texto_insights_salvo.strip()
+        if st.button(
+            "💾 Salvar insights",
+            type="primary" if _tem_alteracao else "secondary",
+            width="stretch",
+            help="Salva o texto escrito e já aplica no PDF exportado.",
+        ):
+            _salvar_insights()
+            st.success("Insights salvos. O PDF já sai com esse texto.")
+        st.caption("O texto é salvo sozinho ao sair da caixa e entra no PDF exportado.")
 
     with c3:
         st.markdown("<div class='section-title'>📊 COMPARATIVO MENSAL</div>", unsafe_allow_html=True)
