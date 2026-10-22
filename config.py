@@ -4,7 +4,25 @@ Nenhum segredo (client secret, access token, refresh token) deve
 ser hardcoded aqui. Tudo vem de st.secrets (local: .streamlit/secrets.toml,
 produção: painel de Secrets do Streamlit Community Cloud).
 """
+import datetime as dt
+
 import streamlit as st
+
+
+def fuso_brasilia():
+    """Fuso de São Paulo (UTC-3, sem horário de verão desde 2019).
+
+    O Streamlit Cloud roda em UTC: sem isso, a data/hora do rodapé do PDF sai
+    3 horas atrás do horário de Brasília.
+    """
+    try:
+        from zoneinfo import ZoneInfo
+
+        return ZoneInfo("America/Sao_Paulo")
+    except Exception:
+        # Windows sem o pacote tzdata: Brasil é UTC-3 fixo desde 2019.
+        return dt.timezone(dt.timedelta(hours=-3), "BRT")
+
 
 # --- Identidade visual / textos fixos ---
 NOME_CLIENTE = "Centro de Eventos Padre Vítor Coelho de Almeida"

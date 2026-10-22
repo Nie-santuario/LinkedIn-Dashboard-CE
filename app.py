@@ -3,6 +3,8 @@ import hashlib
 import requests
 import streamlit as st
 
+
+from config import fuso_brasilia
 from ui.login import credenciais_login, render_tela_login
 from ui.styles import load_css
 from ui.components import (
@@ -262,7 +264,7 @@ st.session_state["pdf_dados"] = dict(
     comparativo=comparativo,
     texto_insights=_texto_insights_pdf,
     fonte_dados="API do LinkedIn" if fonte_api else "Exportação oficial do LinkedIn",
-    data_geracao=dt.datetime.now(),
+    data_geracao=dt.datetime.now(fuso_brasilia()),
 )
 
 
